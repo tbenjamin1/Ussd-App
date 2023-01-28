@@ -5,10 +5,10 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder()
-    .setTitle("ishema ussd v3")
-    .setDescription("The ishema ussd v1")
+    .setTitle("ussd app v1")
+    .setDescription("ussd app v1")
     .setVersion("1.0")
-    .addTag("The ishema ussd v13")
+    .addTag("ussd app v1")
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
