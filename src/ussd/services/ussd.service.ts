@@ -109,6 +109,7 @@ export class UssdService {
         ussdRequestData.text = text;
         ussdRequestData.phoneNumber = input.phoneNumber;
         ussdRequestData.data = JSON.stringify(data);
+        ussdRequestData.save();
       } catch (error) {
         this.logger.log(error);
       }
