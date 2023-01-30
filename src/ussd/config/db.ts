@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from "@nestjs/typeorm";
 import "dotenv/config";
+import { UssdRequest } from "../entities/ussd.request.entity";
 
 @Injectable()
 export class DatabaseConnectionService implements TypeOrmOptionsFactory {
@@ -18,7 +19,7 @@ export class DatabaseConnectionService implements TypeOrmOptionsFactory {
       synchronize: false,
       dropSchema: false,
       logging: false,
-      entities: ["dist/**/*.entity.js"],
+      entities: [UssdRequest],
     };
   }
 }

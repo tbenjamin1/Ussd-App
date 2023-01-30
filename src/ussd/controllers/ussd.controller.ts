@@ -5,7 +5,8 @@ export class UssdController {
   constructor(private readonly service: UssdService) {}
 
   @Get()
-  public async handleUSSDRequest(@Body() query: any) {
-    return this.service.handlerMenus(query);
+  public async handleUSSDRequest(@Query() req:any) {
+    // console.log(req)
+    return this.service.handlerMenus(req);
   }
 }
