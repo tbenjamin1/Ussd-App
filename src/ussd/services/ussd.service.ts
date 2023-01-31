@@ -1,25 +1,33 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 const NodeCache = require("node-cache");
 const myCache = new NodeCache({ stdTTL: 60 * 20, checkperiod: 5 });
 import { Session } from "@nestjs/common";
+import { UssdRequest } from "../entities/ussd.request.entity";
+import { ValidatorHelper } from "../helper/validator.helper";
+import { MainMenuResponse, ResponseDto } from "../response/response.dto";
 
 @Injectable()
 export class UssdService {
-  constructor() {}
-  async handlerMenus(input: any) {
+  constructor(private validatorHelper: ValidatorHelper) {}
+  private readonly logger = new Logger(UssdService.name);
+  async handlerMenus(query: any) {
+    const input = {
+      sessionId: query.sessionId,
+      text: query.text,
+      phoneNumber: query.phoneNumber,
+      serviceCode: 797,
+      newRequest: query.newRequest,
+    };
+
     let nextMenu = "";
+    let ussdRequestData = new UssdRequest();
     let meterNumber = "";
     let amount = "";
-    let response = {
-      message: "",
-      action: "",
-    };
-    let data: {};
-    // const { sessionId, serviceCode, phoneNumber, text } = query;
-
+    let response = new ResponseDto();
+    let mainMenuResponse = new MainMenuResponse();
     let text = "";
-
-    let nextAction = myCache.get("step");
+    let sessionId = input.sessionId;
+    let nextAction = myCache.get(`${sessionId}-nextAction`);
 
     if (input.text === "0") {
       text = UssdService.handleUssdTextBack(input);
@@ -30,69 +38,187 @@ export class UssdService {
     }
 
     console.log("input : " + text);
+    console.log("next action : " + nextAction);
 
-    if (text === "") {
-      // This is the first request. Show the main menu
-      response.message = `CON Welcome to USSD Service: #1.Kugura umuriro #2.Kugura airtime #3.Kugura Startimes`;
-      response.action = "FC";
-
-      nextMenu = UssdService.handleUssdNextSteps("1");
-
-      console.log("next step : " + nextMenu);
+    if (text === "" && input.newRequest === "1") {
+      return mainMenuResponse;
     } else if (text === "1") {
-      response.message = `CON shyiramo numero ya cash power`;
+      response.message = `CON shyiramo numero ya cash power #0).gusubira inyuma`;
       response.action = "FC";
-      nextMenu = UssdService.handleUssdNextSteps("1*1");
+      UssdService.handleUssdNextSteps(input.sessionId, "1*1");
     } else if (text === "2") {
-      response.message = `hitamo 1.Mtn #2.Airtel #3.Tigo # 0.gusubira inyuma `;
+      response.message = `hitamo 1.Mtn #2.Airtel #0).gusubira inyuma `;
       response.action = "FC";
     } else if (text === "2*1") {
-      response.message = `CON shyiramo numero ya Mtn`;
+      response.message = `CON shyiramo numero ya Mtn #0).gusubira inyuma`;
       response.action = "FC";
-    } else if (text === "1*390") {
-      response.message = `CON shyiramo numero decoder`;
+      UssdService.handleUssdNextSteps(input.sessionId, "2*1*1");
+    } else if (text === "2*2") {
+      response.message = `CON shyiramo numero ya airtel cyangwa tigo #0).gusubira inyuma`;
       response.action = "FC";
-    } else if (nextAction === "1*1") {
-      meterNumber = input.text;
-      if (meterNumber === "") {
-        console.log("is empty meter number " + meterNumber)
-        response.action = "FB";
-        response.message = `nabwo mwashizemo numero ya cash power ongera mukanya`;
-        nextMenu = UssdService.handleUssdNextSteps("");
+      UssdService.handleUssdNextSteps(input.sessionId, "2*2*1");
+    }
+
+    //buy startimes subscription logics
+    else if (text === "3") {
+      response.message = `Shyiramo nimero y'ifatabuguzi #0).gusubira inyuma`;
+      response.action = "FC";
+      UssdService.handleUssdNextSteps(input.sessionId, "3*1");
+    } else if (nextAction === "3*1") {
+      if (input.text == 0) {
+        //back home
         UssdService.handleUssdReturnHome(input);
+        return mainMenuResponse;
       }
-      myCache.set("meterNumber", meterNumber);
-      response.action = "FC";
-      response.message = `CON shyiramo amafaranga`;
-      nextMenu = UssdService.handleUssdNextSteps("1*1*1");
-    } else if (nextAction === "1*1*1") {
-      amount = input.text;
-      if (amount === "") {
-        console.log("is empty amount " + amount)
+      let status = this.validatorHelper.validateStartimeNumber(input.text);
+      if (!status) {
+        UssdService.handleUssdReturnHome(input);
+        response.message = `washyizemo nimero itariyo,ongera uyishyiremo neza`;
         response.action = "FB";
-        response.message = `nabwo mwashizemo amafaranga ongera mukanya`;
-        nextMenu = UssdService.handleUssdNextSteps("1");
-        UssdService.handleUssdReturnHome(input);
-      }
-      if (parseInt(amount) < 100 || parseInt(amount) > 250000) {
-        if (parseInt(amount) < 100) {
-          response.action = "FB";
-          response.message = `washizemo amafaranga macye ongera mukanya`;
-        } else {
-          response.action = "FB";
-          response.message = `washizemo amafaranga menshi ongera mukanya`;
-        }
-        myCache.del("meterNumber");
-        nextMenu = UssdService.handleUssdNextSteps("1");
-        UssdService.handleUssdReturnHome(input);
         return response;
       }
+
+      response.message = `CON shyiramo amafaranga #0).gusubira inyuma`;
+      response.action = "FC";
+      UssdService.handleUssdNextSteps(input.sessionId, "3*1*1");
+    } else if (nextAction === "3*1*1") {
+      if (input.text == 0) {
+        //return home if input is 0
+        UssdService.handleUssdReturnHome(input);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        return mainMenuResponse;
+      }
+      let cardNumber = text.split("*");
+      amount = input.text;
+
+      let status = this.validatorHelper.validateAmount(input.text);
+      if (!status) {
+        response.message = `amafaranga yemewe ni 100-250000 ongera ushyiremo amafaranga #0)gusubira inyuma`;
+        response.action = "FC";
+        UssdService.handleUssdReturnHome(input);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        return response;
+      }
+      let data = {
+        cardNumber: cardNumber[1],
+        amountPaid: amount,
+      };
+      try {
+        //save in database
+        ussdRequestData.sessionId = input.sessionId;
+        ussdRequestData.text = text;
+        ussdRequestData.phoneNumber = input.phoneNumber;
+        ussdRequestData.data = JSON.stringify(data);
+        ussdRequestData.save();
+      } catch (error) {
+        this.logger.log(error);
+      }
+      response.message = `CON Murakoze muguze ifatabuguzi rya startimes kuri ${cardNumber[1]} : namafaranga ${amount}`;
       response.action = "FB";
-      let meterNum = myCache.get("meterNumber");
-      response.message = `CON Murakoze muguze umuriro kuri cash power ${meterNum} : uhwanye namafaranga ${amount}`;
-      myCache.del("meterNumber");
-      nextMenu = UssdService.handleUssdNextSteps("1");
+      myCache.del(`${sessionId}-meterNumber`);
+      nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "1");
       UssdService.handleUssdReturnHome(input);
+    }
+    //end buying startimes subscription logics
+
+    // handling receiving meter number
+    else if (nextAction === "1*1") {
+      let status = this.validatorHelper.validateMeterNunber(input.text);
+      if (!status) {
+        text = UssdService.handleUssdReturnHome(input);
+        response.message = `nimero siyo,ongera uyishyiremo neza`;
+        response.action = "FB";
+        return response;
+      }
+      response.message = `CON shyiramo amafaranga`;
+      response.action = "FC";
+      nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "1*1*1");
+    }
+    // handling receiving amount
+    else if (nextAction === "1*1*1") {
+      if (input.text == 0) {
+        //back home
+        UssdService.handleUssdReturnHome(input);
+        return mainMenuResponse;
+      }
+      let cashPowerNumber = text.split("*");
+      amount = input.text;
+
+      let status = this.validatorHelper.validateAmount(input.text);
+      if (!status) {
+        response.message = `amafaranga yemewe ni 100-250000 ongera ushyiremo amafaranga #0)gusubira inyuma`;
+        response.action = "FC";
+        UssdService.handleUssdReturnHome(input);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        return response;
+      }
+
+      response.message = `CON Murakoze muguze umuriro kuri cash power ${cashPowerNumber[1]} : uhwanye namafaranga ${amount}`;
+      response.action = "FB";
+      myCache.del(`${sessionId}-meterNumber`);
+      nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "1");
+      UssdService.handleUssdReturnHome(input);
+    }
+    //handling phone number
+    else if (nextAction === "2*1*1") {
+      let status = this.validatorHelper.validateMtnPhoneNumber(input.text);
+      if (!status) {
+        text = UssdService.handleUssdReturnHome(input);
+        response.message = `washyizemo nimero itariyo ongera ushyiremo neza`;
+        response.action = "FB";
+        return response;
+      }
+      response.message = `CON shyiramo amafaranga #0) gusubira inyuma`;
+      response.action = "FC";
+      nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "2*1*1*1");
+    } else if (nextAction === "2*1*1*1") {
+      if (input.text == 0) {
+        //return home if input is 0
+        UssdService.handleUssdReturnHome(input);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        return mainMenuResponse;
+      }
+      let phoneNumber = text.split("*");
+      amount = input.text;
+
+      let status = this.validatorHelper.validateAmount(input.text);
+      if (!status) {
+        response.message = `amafaranga yemewe ni 100-250000 ongera ushyiremo amafaranga #0)gusubira inyuma`;
+        response.action = "FC";
+        UssdService.handleUssdReturnHome(input);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        return response;
+      }
+      text = UssdService.handleUssdReturnHome(input);
+      response.message = `CON Murakoze muguze ama inite kuri numero ${phoneNumber[2]} : ahwanye namafaranga ${amount}`;
+      response.action = "FB";
+    } //handling phone number
+    else if (nextAction === "2*2*1") {
+      let status = this.validatorHelper.validateAirtelPhoneNumber(input.text);
+      if (!status) {
+        text = UssdService.handleUssdReturnHome(input);
+        response.message = `washyizemo nimero itariyo ongera ushyiremo neza`;
+        response.action = "FB";
+        return response;
+      }
+      response.message = `CON shyiramo amafaranga`;
+      response.action = "FC";
+      nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "2*2*1*1");
+    } else if (nextAction === "2*2*1*1") {
+      let phoneNumber = text.split("*");
+      amount = input.text;
+
+      let status = this.validatorHelper.validateAmount(input.text);
+      if (!status) {
+        response.message = `amafaranga yemewe ni 100-250000 ongera ushyiremo amafaranga #0)gusubira inyuma`;
+        response.action = "FC";
+        UssdService.handleUssdReturnHome(input);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        return response;
+      }
+      text = UssdService.handleUssdReturnHome(input);
+      response.message = `CON Murakoze muguze ama inite kuri numero ${phoneNumber[2]} : ahwanye namafaranga ${amount}`;
+      response.action = "FB";
     } else {
       response.message = `invalid option`;
       response.action = "FB";
@@ -144,10 +270,10 @@ export class UssdService {
   }
 
   //handle ussd next user action
-  private static handleUssdNextSteps(step: any) {
+  private static handleUssdNextSteps(sessionId: string, step: any) {
     let steps = step;
     // save the chained text and return the chained text
-    myCache.set("step", steps);
+    myCache.set(`${sessionId}-nextAction`, steps);
     return steps;
   }
 }
