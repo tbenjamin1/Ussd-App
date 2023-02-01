@@ -5,18 +5,18 @@ import { ResponseDto } from "../response/response.dto";
 @Injectable()
 export class ValidatorHelper {
   //validate meter number
-  validateMeterNunber(meterNumber: string) {
+  validateMeterNunber(meterNumber: any) {
     const regex = /^[1-9]\d*(\.\d+)?$/;
-    if (meterNumber == "") {
+    if (meterNumber == "" || isNaN(meterNumber)) {
       return false;
     }
     return true;
   }
 
   //validate startimes number
-  validateStartimeNumber(input: string) {
+  validateStartimeNumber(input: any) {
     const regex = /^[1-9]\d*(\.\d+)?$/;
-    if (input == "") {
+    if (input == "" || isNaN(input)) {
       return false;
     }
     return true;
@@ -57,6 +57,26 @@ export class ValidatorHelper {
       !regex.test(amount) ||
       amount % 1 !== 0
     ) {
+      return false;
+    }
+    return true;
+  }
+  //validate mtn phone number
+  meterNumberNotFound(meterNumber: any) {
+    if (meterNumber == 1111) {
+      return false;
+    }
+    return true;
+  }
+
+  phoneNumberNotFound(phone: any) {
+    if (phone == "0781010100") {
+      return false;
+    }
+    return true;
+  }
+  cardNumberNotFound(cardNumber: any) {
+    if (cardNumber == "1111") {
       return false;
     }
     return true;

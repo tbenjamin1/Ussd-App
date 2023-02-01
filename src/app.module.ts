@@ -10,6 +10,8 @@ import { UuidGeneratorHelper } from "./ussd/utils/uuid-generator.helper";
 import { UssdRequest } from "./ussd/entities/ussd.request.entity";
 import { DataSource } from "typeorm";
 import { ValidatorHelper } from "./ussd/helper/validator.helper";
+import { UssdElectricityRequest } from "./ussd/entities/ussd.power.request.entity";
+import { UssdStartimesRequest } from "./ussd/entities/ussd.startimes.request.entity";
 
 @Module({
   imports: [
@@ -22,17 +24,12 @@ import { ValidatorHelper } from "./ussd/helper/validator.helper";
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_DB,
-      entities: [UssdRequest],
+      entities: [UssdRequest, UssdElectricityRequest, UssdStartimesRequest],
       synchronize: true,
     }),
   ],
   controllers: [AppController, UssdController],
-  providers: [
-    AppService,
-    UssdService,
-    ValidatorHelper,
-    UuidGeneratorHelper,
-  ],
+  providers: [AppService, UssdService, ValidatorHelper, UuidGeneratorHelper],
 })
 export class AppModule {
   constructor(private dataSource: DataSource) {}
