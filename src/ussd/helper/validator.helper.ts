@@ -47,6 +47,7 @@ export class ValidatorHelper {
     }
     return true;
   }
+
   //validate mtn phone number
   validateAmount(amount: any) {
     const regex = /^[1-9]\d*(\.\d+)?$/;

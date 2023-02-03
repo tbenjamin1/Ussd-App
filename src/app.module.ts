@@ -7,11 +7,11 @@ import { UssdController } from "./ussd/controllers/ussd.controller";
 import { UssdService } from "./ussd/services/ussd.service";
 import { ConfigModule } from "@nestjs/config";
 import { UuidGeneratorHelper } from "./ussd/utils/uuid-generator.helper";
-import { UssdRequest } from "./ussd/entities/ussd.request.entity";
 import { DataSource } from "typeorm";
 import { ValidatorHelper } from "./ussd/helper/validator.helper";
 import { UssdElectricityRequest } from "./ussd/entities/ussd.power.request.entity";
 import { UssdStartimesRequest } from "./ussd/entities/ussd.startimes.request.entity";
+import { UssdAirtimeRequest } from "./ussd/entities/ussd.airtime.request.entity";
 
 @Module({
   imports: [
@@ -24,7 +24,11 @@ import { UssdStartimesRequest } from "./ussd/entities/ussd.startimes.request.ent
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_DB,
-      entities: [UssdRequest, UssdElectricityRequest, UssdStartimesRequest],
+      entities: [
+        UssdElectricityRequest,
+        UssdStartimesRequest,
+        UssdAirtimeRequest,
+      ],
       synchronize: true,
     }),
   ],

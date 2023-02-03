@@ -4,8 +4,8 @@ const myCache = new NodeCache({ stdTTL: 60 * 20, checkperiod: 5 });
 import { Session } from "@nestjs/common";
 import e from "express";
 import { lastValueFrom } from "rxjs";
+import { UssdAirtimeRequest } from "../entities/ussd.airtime.request.entity";
 import { UssdElectricityRequest } from "../entities/ussd.power.request.entity";
-import { UssdRequest } from "../entities/ussd.request.entity";
 import { UssdStartimesRequest } from "../entities/ussd.startimes.request.entity";
 import { ValidatorHelper } from "../helper/validator.helper";
 import { ResponseDto } from "../response/response.dto";
@@ -24,7 +24,6 @@ export class UssdService {
     };
 
     let nextMenu = "";
-    let ussdRequestData = new UssdRequest();
     let meterNumber = "";
     let amount = "";
     // const response = new ResponseDto();
@@ -82,6 +81,7 @@ export class UssdService {
         UssdService.countFailedInputs(input);
         return ResponseDto.failedCachPowerNumberResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       let isMeterNumberExist = this.validatorHelper.meterNumberNotFound(
         input.text,
       );
@@ -90,6 +90,7 @@ export class UssdService {
         UssdService.countFailedInputs(input);
         return ResponseDto.failedCachPowerNumberResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       //fetch user names
       let userName = "JHON DOE";
       //save that name for getting when user come back
@@ -109,13 +110,11 @@ export class UssdService {
 
       let status = this.validatorHelper.validateAmount(input.text);
       if (!status) {
-        myCache.del(`${sessionId}-counter`);
-        myCache.del(`${sessionId}-name`);
-        myCache.del(`${sessionId}-nextAction`);
-        UssdService.handleUssdReturnHome(input);
-        UssdService.handleUssdNextSteps(input.sessionId, "100*1");
+        UssdService.handleBackWardActionOnce(input);
+        UssdService.countFailedInputs(input);
         return ResponseDto.invalidAmountResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "1*1*1*1");
       return ResponseDto.electrityConfirmResponseScreen(
         cashPowerNumber[1],
@@ -175,15 +174,38 @@ export class UssdService {
     .
     .
     . 
-     //end business logic for buying electricity
-    //#endregion
+    .end business logic for buying electricity
+    .#endregion
+    .
+    .
+    .
+    */
+      // ============================================================================================
+      /*
+    .
+    .
+    .starting of mtn airtime bussiness logic
     .
     .
     .
     */
     } else if (text === "2") {
+      UssdService.handleUssdNextSteps(input.sessionId, "2*1");
       return ResponseDto.chooseCellProviderResponseScreen;
-    } else if (text === "2*1") {
+    } else if (text === "2*2") {
+      if (input.text == 0) {
+        UssdService.handleBackWardSteps(input, nextAction);
+        return ResponseDto.mainMenuResponse;
+      }
+      UssdService.handleUssdNextSteps(input.sessionId, "2*2");
+      nextAction = myCache.get(`${sessionId}-nextAction`);
+      UssdService.handleUssdNextSteps(input.sessionId, "2*2*1");
+      return ResponseDto.entryPhoneNumberResponseScreen;
+    } else if (nextAction === "2*1") {
+      if (input.text == 0) {
+        UssdService.handleBackWardSteps(input, nextAction);
+        return ResponseDto.mainMenuResponse;
+      }
       UssdService.handleUssdNextSteps(input.sessionId, "2*1*1");
       return ResponseDto.entryPhoneNumberResponseScreen;
     } //handling phone number
@@ -194,18 +216,20 @@ export class UssdService {
       }
       let status = this.validatorHelper.validateMtnPhoneNumber(input.text);
       if (!status) {
-        UssdService.handleBackWardAction(input);
+        UssdService.handleBackWardActionOnce(input);
         UssdService.countFailedInputs(input);
         return ResponseDto.invalidPhoneNumberResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       const isPhoneExist = this.validatorHelper.phoneNumberNotFound(input.text);
       if (!isPhoneExist) {
-        UssdService.handleBackWardAction(input);
+        UssdService.handleBackWardActionOnce(input);
         UssdService.countFailedInputs(input);
         return ResponseDto.invalidPhoneNumberResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       UssdService.handleUssdNextSteps(input.sessionId, "2*1*1*1");
-      return ResponseDto.entryAmountResponse;
+      return ResponseDto.entryAmountResponseScreen;
     } else if (nextAction === "2*1*1*1") {
       if (input.text == 0) {
         //return home if input is 0
@@ -217,49 +241,164 @@ export class UssdService {
 
       let status = this.validatorHelper.validateAmount(input.text);
       if (!status) {
-        UssdService.handleBackWardAction(input);
+        UssdService.handleBackWardActionOnce(input);
+        UssdService.countFailedInputs(input);
         return ResponseDto.invalidAmountResponseScreen;
       }
-      const response = {
-        message: `CON Murakoze muguze umuriro kuri cash power ${phoneNumber[2]} : uhwanye namafaranga ${amount}`,
-        action: "FB",
-      };
+      myCache.del(`${sessionId}-counter`);
+      UssdService.handleUssdNextSteps(input.sessionId, "2*1*1*1*1");
+      return ResponseDto.airtimePurchaseConfirmResponseScreen(
+        phoneNumber[2],
+        amount,
+      );
+    } else if (nextAction === "2*1*1*1*1") {
+      if (input.text == 0) {
+        //back home
+        UssdService.handleBackWardSteps(input, nextAction);
+        return ResponseDto.entryAmountResponseScreen;
+      } else if (input.text == 1) {
+        let data = text.split("*");
+        //phone number data[2]
+        //amount for airtime data[3]
+
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        UssdService.handleUssdReturnHome(input);
+        myCache.del(`${sessionId}-counter`);
+        myCache.del(`${sessionId}-name`);
+        myCache.del(`${sessionId}-nextAction`);
+        let ussdRequest = new UssdAirtimeRequest();
+        ussdRequest.sessionId = input.sessionId;
+        ussdRequest.text = text;
+        ussdRequest.amount = data[3];
+        ussdRequest.requestPhoneNumber = input.phoneNumber;
+        ussdRequest.receiverPhoneNumber = data[2];
+        // save data in db
+        try {
+          ussdRequest.save();
+        } catch (err) {
+          this.logger.log(err);
+        }
+        return ResponseDto.startimesAndAirtimeFinalResponseScreen;
+      } else {
+        myCache.del(`${sessionId}-counter`);
+        myCache.del(`${sessionId}-name`);
+        myCache.del(`${sessionId}-nextAction`);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        UssdService.handleUssdReturnHome(input);
+        return ResponseDto.wrongChoiceResponseScreen;
+      }
+      /*
+    .
+    .
+    .ending of mtn airtime bussiness logic
+    .
+      // ============================================================================================
+    /*
+    .
+    .
+    .starting of airtel airtime bussiness logic
+    .
+    .
+    .
+    */
+    } else if (nextAction === "2*2") {
+      UssdService.handleUssdReturnHome(input);
       myCache.del(`${sessionId}-counter`);
       myCache.del(`${sessionId}-name`);
       myCache.del(`${sessionId}-nextAction`);
-      UssdService.handleUssdReturnHome(input);
       UssdService.handleUssdNextSteps(input.sessionId, "1");
-      return response;
-    } else if (text === "2*2") {
-      UssdService.handleUssdNextSteps(input.sessionId, "2*2*1");
-      return ResponseDto.entryPhoneNumberResponseScreen;
-    }
-
-    //handling phone number
+      return ResponseDto.mainMenuResponse;
+    } //handling phone number
     else if (nextAction === "2*2*1") {
+      if (input.text == 0) {
+        UssdService.handleBackWardSteps(input, nextAction);
+        return ResponseDto.chooseCellProviderResponseScreen;
+      }
       let status = this.validatorHelper.validateAirtelPhoneNumber(input.text);
       if (!status) {
-        UssdService.handleBackWardAction(input);
+        UssdService.handleBackWardActionOnce(input);
+        UssdService.countFailedInputs(input);
         return ResponseDto.invalidPhoneNumberResponseScreen;
       }
-      nextMenu = UssdService.handleUssdNextSteps(input.sessionId, "2*2*1*1");
-      return ResponseDto.entryAmountResponse;
+      myCache.del(`${sessionId}-counter`);
+      const isPhoneExist = this.validatorHelper.phoneNumberNotFound(input.text);
+      if (!isPhoneExist) {
+        UssdService.handleBackWardActionOnce(input);
+        UssdService.countFailedInputs(input);
+        return ResponseDto.invalidPhoneNumberResponseScreen;
+      }
+      myCache.del(`${sessionId}-counter`);
+      UssdService.handleUssdNextSteps(input.sessionId, "2*2*1*1");
+      return ResponseDto.entryAmountResponseScreen;
     } else if (nextAction === "2*2*1*1") {
+      if (input.text == 0) {
+        //return home if input is 0
+        UssdService.handleBackWardSteps(input, nextAction);
+        return ResponseDto.entryPhoneNumberResponseScreen;
+      }
       let phoneNumber = text.split("*");
       amount = input.text;
 
       let status = this.validatorHelper.validateAmount(input.text);
       if (!status) {
-        UssdService.handleBackWardAction(input);
+        UssdService.handleBackWardActionOnce(input);
+        UssdService.countFailedInputs(input);
         return ResponseDto.invalidAmountResponseScreen;
       }
-      text = UssdService.handleUssdReturnHome(input);
-      const response = {
-        message: `CON Murakoze muguze umuriro kuri cash power ${phoneNumber[2]} : uhwanye namafaranga ${amount}`,
-        action: "FB",
-      };
-      return response;
+      myCache.del(`${sessionId}-counter`);
+      UssdService.handleUssdNextSteps(input.sessionId, "2*2*1*1*1");
+      return ResponseDto.airtimePurchaseConfirmResponseScreen(
+        phoneNumber[2],
+        amount,
+      );
+    } else if (nextAction === "2*2*1*1*1") {
+      if (input.text == 0) {
+        //back home
+        UssdService.handleBackWardSteps(input, nextAction);
+        return ResponseDto.entryAmountResponseScreen;
+      } else if (input.text == 1) {
+        let data = text.split("*");
+        //phone number data[2]
+        //amount for airtime data[3]
+
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        UssdService.handleUssdReturnHome(input);
+        myCache.del(`${sessionId}-counter`);
+        myCache.del(`${sessionId}-name`);
+        myCache.del(`${sessionId}-nextAction`);
+        let ussdRequest = new UssdAirtimeRequest();
+        ussdRequest.sessionId = input.sessionId;
+        ussdRequest.text = text;
+        ussdRequest.amount = data[3];
+        ussdRequest.requestPhoneNumber = input.phoneNumber;
+        ussdRequest.receiverPhoneNumber = data[2];
+        // save data in db
+        try {
+          ussdRequest.save();
+        } catch (err) {
+          this.logger.log(err);
+        }
+        return ResponseDto.startimesAndAirtimeFinalResponseScreen;
+      } else {
+        myCache.del(`${sessionId}-counter`);
+        myCache.del(`${sessionId}-name`);
+        myCache.del(`${sessionId}-nextAction`);
+        UssdService.handleUssdNextSteps(input.sessionId, "1");
+        UssdService.handleUssdReturnHome(input);
+        return ResponseDto.wrongChoiceResponseScreen;
+      }
+
+      //----------------------------------------------------------------
     } else if (text === "3") {
+      /*
+    .
+    .
+    .ending of airtel airtime bussiness logic
+    .
+    .
+    .
+    .
+    */
       /*
     .
     .
@@ -281,6 +420,7 @@ export class UssdService {
         UssdService.countFailedInputs(input);
         return ResponseDto.failedCachPowerNumberResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       let isCardNumberExist = this.validatorHelper.cardNumberNotFound(
         input.text,
       );
@@ -289,6 +429,7 @@ export class UssdService {
         UssdService.countFailedInputs(input);
         return ResponseDto.failedCachPowerNumberResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       UssdService.handleUssdNextSteps(input.sessionId, "3*1*1");
       return ResponseDto.entryAmountResponseScreen;
     } else if (nextAction === "3*1*1") {
@@ -305,13 +446,11 @@ export class UssdService {
 
       let status = this.validatorHelper.validateAmount(input.text);
       if (!status) {
-        myCache.del(`${sessionId}-counter`);
-        myCache.del(`${sessionId}-name`);
-        myCache.del(`${sessionId}-nextAction`);
-        UssdService.handleUssdReturnHome(input);
-        UssdService.handleUssdNextSteps(input.sessionId, "100*1");
-        return ResponseDto.invalidStartimesAmountResponseScreen;
+        UssdService.handleBackWardActionOnce(input);
+        UssdService.countFailedInputs(input);
+        return ResponseDto.invalidAmountResponseScreen;
       }
+      myCache.del(`${sessionId}-counter`);
       UssdService.handleUssdNextSteps(input.sessionId, "3*1*1*1");
       return ResponseDto.startimesPurchaseConfirmResponseScreen(
         cardNumber[1],
@@ -349,7 +488,7 @@ export class UssdService {
           this.logger.log(err);
         }
         ussdRequest.amount = data[2];
-        return ResponseDto.startimesFinalResponseScreen;
+        return ResponseDto.startimesAndAirtimeFinalResponseScreen;
       } else {
         myCache.del(`${sessionId}-counter`);
         myCache.del(`${sessionId}-name`);
@@ -363,8 +502,8 @@ export class UssdService {
     .
     .
     . 
-     //end business logic for buying electricity
-    //#endregion
+    .end business logic for buying electricity
+    .#endregion
     .
     .
     .

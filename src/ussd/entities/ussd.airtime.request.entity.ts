@@ -3,28 +3,28 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from "typeorm";
 
-@Entity("ussd_request")
-export class UssdRequest extends BaseEntity {
+@Entity("ussd_airtime_request")
+export class UssdAirtimeRequest extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
   sessionId: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   text: string;
 
   @Column()
-  phoneNumber: string;
+  requestPhoneNumber: string;
 
-  @Column({ nullable: true })
-  data: string;
+  @Column({ nullable: false })
+  receiverPhoneNumber: string;
+
+  @Column({ nullable: false })
+  amount: string;
 
   @CreateDateColumn()
   created_at: Date;

@@ -57,7 +57,7 @@ export class ResponseDto {
     message: "Shyiramo amafaranga #0) Subira inyuma  #*) Ahabanza",
     action: "FC",
   };
-  
+
   public static wrongInputResponseScreen = {
     message: "mwarengeje inshuro mwemerewe gushyiramo",
     action: "FB",
@@ -70,7 +70,7 @@ export class ResponseDto {
 
   public static electrityConfirmResponseScreen(meterNumber: any, amount: any) {
     let response = {
-      message: `WINJIJE Numero ya cash power : ${meterNumber} amafaranga ${amount} kanda #1) kwemeza #0) gusubira inyuma`,
+      message: `WINJIJE Numero ya cash power : ${meterNumber} n'amafaranga ${amount} kanda #1) kwemeza #0) gusubira inyuma`,
       action: "FC",
     };
     return response;
@@ -87,7 +87,17 @@ export class ResponseDto {
     amount: any,
   ) {
     let response = {
-      message: `WINJIJE Numero ya startimes : ${cardNumber} amafaranga ${amount} kanda #1) kwemeza #0) gusubira inyuma`,
+      message: `WINJIJE Numero ya startimes : ${cardNumber} n'amafaranga ${amount} kanda #1) kwemeza #0) gusubira inyuma`,
+      action: "FC",
+    };
+    return response;
+  }
+  public static airtimePurchaseConfirmResponseScreen(
+    phoneNumber: any,
+    amount: any,
+  ) {
+    let response = {
+      message: `WINJIJE Numero : ${phoneNumber} n'amafaranga ${amount} kanda #1) kwemeza #0) gusubira inyuma`,
       action: "FC",
     };
     return response;
@@ -99,8 +109,8 @@ export class ResponseDto {
     };
     return response;
   }
-  public static startimesFinalResponseScreen = {
-    message: `Murakoze,Mukanya arabageraho.FB`,
+  public static startimesAndAirtimeFinalResponseScreen = {
+    message: `Murakoze,Mukanya arabageraho`,
     action: "FB",
   };
 }
