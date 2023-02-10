@@ -22,14 +22,14 @@ export class UssdService {
       serviceCode: 797,
       newRequest: query.newRequest,
     };
-
+    let inputs = "797"
     let nextMenu = "";
     let meterNumber = "";
     let amount = "";
     // const response = new ResponseDto();
 
     let text = "";
-    let sessionId = input.sessionId;
+    let sessionId = inputs;
     let nextAction = myCache.get(`${sessionId}-nextAction`);
     const counter = myCache.get(`${sessionId}-counter`);
 
@@ -72,16 +72,13 @@ export class UssdService {
     } // handling receiving meter number
     else if (nextAction === "1*1") {
       if (input.text == 0) {
-        UssdService.handleBackWardSteps(input, nextAction);
         return ResponseDto.mainMenuResponse;
       }
-      let status = this.validatorHelper.validateMeterNunber(input.text);
       if (!status) {
         UssdService.handleBackWardActionOnce(input);
         UssdService.countFailedInputs(input);
         return ResponseDto.failedCachPowerNumberResponseScreen;
       }
-      myCache.del(`${sessionId}-counter`);
       let isMeterNumberExist = this.validatorHelper.meterNumberNotFound(
         input.text,
       );
@@ -120,7 +117,7 @@ export class UssdService {
         cashPowerNumber[1],
         amount,
       );
-    } else if (nextAction == "100*1") {
+    } else if (nextAction == "1000*1") {
       if (input.text != "*") {
         myCache.del(`${sessionId}-counter`);
         myCache.del(`${sessionId}-name`);
@@ -137,10 +134,7 @@ export class UssdService {
         UssdService.handleBackWardSteps(input, nextAction);
         return ResponseDto.entryAmountForElectricityResponse(userName);
       } else if (input.text == 1) {
-        let data = text.split("*");
-        //cashpower number data[1]
-        //amount for buying electricity  data[2]
-
+       
         const token = "3338-8949-3828-2234";
         UssdService.handleUssdNextSteps(input.sessionId, "1");
         UssdService.handleUssdReturnHome(input);
